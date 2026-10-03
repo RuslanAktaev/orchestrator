@@ -6,7 +6,8 @@
 2. `roster` — is someone already on this repo, and is a hire even needed?
 3. Is there a role for this work? `recruit --roles`. If not, `protocols/roles.md` — but do
    not invent a role to avoid thinking about the task.
-4. `grep -L '^model:' ~/.claude/agents/*.md` — it must print nothing. A role that does not
+4. `grep -L '^model:' "$(dirname "$(command -v recruit)")"/../agents/*.md ~/.claude/agents/*.md`
+   — it must name no role you are about to hire. A role that does not
    pin its model runs on whatever tier the hiring session happens to use, which is how three
    top-tier sessions once burned an account limit mid-review (`protocols/constraints.md`, §7).
    Fix the file before the hire; an agent cannot be moved to another model after it started.
@@ -16,7 +17,8 @@
 The role is a mandate, not a technology. `front` and `back` write code; `reviewer` cannot
 (no `Write`/`Edit`); `tester` deliberately keeps every tool because testing needs a
 browser, kubectl and curl, and is held by its mandate instead. The live registry is
-`recruit --roles`; the mandates are in `~/.claude/agents/<role>.md`.
+`recruit --roles`; the mandates are in the role files — the plugin's `agents/<role>.md` for
+the shipped roles, `~/.claude/agents/<role>.md` for your own (`protocols/constraints.md`, §0).
 
 ## Where it works
 
@@ -39,7 +41,7 @@ tester    .
 ```
 
 A `.roster` row maps a directory and nothing more — it does not register a role. A row for
-a role that has no `~/.claude/agents/<role>.md` makes `recruit <role>` die before it touches
+a role that `recruit --roles` does not list makes `recruit <role>` die before it touches
 herdr.
 
 Use `--worktree` when: a second writer needs the same repo; the branch must not disturb the
@@ -228,4 +230,4 @@ Don't — call `recruit`. It exists because of two traps: a pane reports `agent_
 for seconds after `tab create` even when its foreground process is a clean zsh, and a
 readiness probe returns instantly so retrying on it burns every attempt inside one second.
 The fix is a retry loop with a **real** pause; `recruit` blocks ~1.2s by waiting for output
-that never arrives. Read `bin/recruit` in this repository before writing anything of your own.
+that never arrives. Read `recruit` itself (`command -v recruit`) before writing anything of your own.

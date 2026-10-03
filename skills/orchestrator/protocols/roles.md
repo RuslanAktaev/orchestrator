@@ -3,11 +3,12 @@
 ## The registry is a command, not a list
 
 ```sh
-recruit --roles          # every ~/.claude/agents/*.md with its description
+recruit --roles          # every role recruit and Claude Code can see, with its description
 ```
 
-The roles shipped in this repository's `agents/` are `front`, `back`, `reviewer`, `tester`,
-`researcher`. What each one is for lives in its own `~/.claude/agents/<role>.md` and nowhere
+The roles shipped in the plugin's `agents/` are `front`, `back`, `reviewer`, `tester`,
+`researcher`, listed as `orchestrator:<role>`. What each one is for lives in its own role file
+(`protocols/constraints.md`, §0) and nowhere
 else — no second copy is kept here, because a second copy drifts from the first.
 
 ## One file, two ways to use it
@@ -24,7 +25,8 @@ Tool restrictions from the frontmatter apply identically either way.
 
 ## Adding a role
 
-1. **File** — `~/.claude/agents/<name>.md`. Frontmatter owns everything:
+1. **File** — `~/.claude/agents/<name>.md`, not the plugin's `agents/`: the plugin directory is
+   replaced on every update and a role written there is lost. Frontmatter owns everything:
    - `name` — must match the filename.
    - `description` — the discovery key. A router picks the role by this text, so write what
      it is for and include the trigger words; `tester` shows the pattern with its Russian

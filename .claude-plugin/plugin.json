@@ -1,0 +1,9 @@
+{
+  "name": "orchestrator",
+  "version": "0.1.0",
+  "description": "Teamlead set: drive several Claude Code agents from herdr panes — the orchestrator skill, five roles and six wrappers over herdr.",
+  "author": { "name": "TechTechWizard" },
+  "repository": "https://github.com/RuslanAktaev/orchestrator",
+  "license": "MIT",
+  "keywords": ["herdr", "agents", "orchestration", "teamlead"]
+}

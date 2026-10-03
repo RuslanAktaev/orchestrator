@@ -1,0 +1,173 @@
+#!/bin/sh
+# session-start — the plugin's SessionStart hook.
+#
+# The plugin system installs everything by itself: the skill from skills/, the roles from
+# agents/, the wrappers from bin/ (Claude Code puts that directory on the PATH of its Bash
+# tool). So this hook creates nothing. It does two things, once per plugin version:
+#
+#   1. removes what the old two-step installation left behind — links into a clone of this
+#      repository and the copy of the skill `npx skills` made. Left in place they break the
+#      plugin: ~/.local/bin comes before the plugin's bin/ on the PATH, so the old wrappers
+#      would run instead of these; a role linked into ~/.claude/agents makes `recruit back`
+#      ambiguous; the old skill duplicates this one.
+#   2. reports a missing herdr, glab or clickup, the notes install.sh used to print.
+#
+# "Once per version" is a stamp in $CLAUDE_PLUGIN_DATA holding $CLAUDE_PLUGIN_ROOT, whose
+# path changes with every version. When it matches, the hook exits before doing anything
+# and prints nothing: stdout of a SessionStart hook goes into the session's context, so a
+# word printed on every start would cost every session.
+
+set -eu
+
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+DATA="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/orchestrator}"
+STATE="$DATA/state"
+
+[ "$(cat "$STATE" 2>/dev/null || true)" = "$ROOT" ] && exit 0
+
+TOOLS="recruit roster fire tell await await-mr"
+ROLES="back front researcher reviewer tester"
+BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
+AGENTS_DIR="${AGENTS_DIR:-$HOME/.claude/agents}"
+
+removed=""
+clones=""
+failed=0
+add() { removed="$removed
+  - $1"; }
+
+# A link is the old installation's when it points at <clone>/<sub>/<file> and <clone> is a
+# clone of this repository — it has bin/recruit — or when it dangles at such a path because
+# the clone was deleted. Anything else, a regular file or a link elsewhere, is somebody's
+# own and stays.
+legacy_link() {  # legacy_link <link> <sub>/<file>; prints the clone
+    [ -L "$1" ] || return 1
+    target=$(readlink "$1")
+    case "$target" in
+        /*) ;;
+        *) target="$(dirname "$1")/$target" ;;
+    esac
+    case "$target" in
+        */"$2") ;;
+        *) return 1 ;;
+    esac
+    clone=${target%/"$2"}
+    [ "$clone" = "$ROOT" ] && return 1
+    if [ -e "$target" ] && [ ! -f "$clone/bin/recruit" ]; then
+        return 1
+    fi
+    printf '%s\n' "$clone"
+}
+
+drop_link() {  # drop_link <link> <sub>/<file>
+    clone=$(legacy_link "$1" "$2") || return 0
+    if rm -f "$1"; then
+        add "$1"
+        if [ -d "$clone" ]; then
+            case " $clones " in
+                *" $clone "*) ;;
+                *) clones="$clones $clone" ;;
+            esac
+        fi
+    else
+        failed=1
+    fi
+}
+
+for tool in $TOOLS; do
+    drop_link "$BIN_DIR/$tool" "bin/$tool"
+done
+for role in $ROLES; do
+    drop_link "$AGENTS_DIR/$role.md" "agents/$role.md"
+done
+
+# The skill `npx skills add ... -g -a claude-code` installed: a copy in ~/.agents/skills,
+# reached from ~/.claude/skills by a link (or a second copy), and an entry in its lock file.
+# Recognised by its SKILL.md, never by the directory name alone.
+is_our_skill() {
+    [ -f "$1/SKILL.md" ] \
+        && grep -q '^name: orchestrator$' "$1/SKILL.md" \
+        && grep -q 'source: "https://github.com/[^"]*/orchestrator"' "$1/SKILL.md"
+}
+CLAUDE_SKILL="$HOME/.claude/skills/orchestrator"
+AGENTS_SKILL="$HOME/.agents/skills/orchestrator"
+if [ -L "$CLAUDE_SKILL" ]; then
+    if is_our_skill "$CLAUDE_SKILL" || [ ! -e "$CLAUDE_SKILL" ]; then
+        rm -f "$CLAUDE_SKILL" && add "$CLAUDE_SKILL" || failed=1
+    fi
+elif [ -d "$CLAUDE_SKILL" ] && is_our_skill "$CLAUDE_SKILL"; then
+    rm -rf "$CLAUDE_SKILL" && add "$CLAUDE_SKILL" || failed=1
+fi
+if [ -d "$AGENTS_SKILL" ] && [ ! -L "$AGENTS_SKILL" ] && is_our_skill "$AGENTS_SKILL"; then
+    rm -rf "$AGENTS_SKILL" && add "$AGENTS_SKILL" || failed=1
+fi
+if [ -n "${XDG_STATE_HOME:-}" ]; then
+    LOCK="$XDG_STATE_HOME/skills/.skill-lock.json"
+else
+    LOCK="$HOME/.agents/.skill-lock.json"
+fi
+if [ -f "$LOCK" ] && command -v python3 >/dev/null 2>&1; then
+    if python3 - "$LOCK" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as fh:
+    lock = json.load(fh)
+entry = (lock.get("skills") or {}).get("orchestrator")
+source = str((entry or {}).get("source") or "")
+if not entry or not source.rstrip("/").endswith("/orchestrator"):
+    sys.exit(1)
+del lock["skills"]["orchestrator"]
+with open(path, "w") as fh:
+    json.dump(lock, fh, indent=2)
+PY
+    then
+        add "the orchestrator entry in $LOCK"
+    fi
+fi
+
+# Prerequisites, as install.sh reported them. A missing herdr leaves nothing here usable;
+# the rest only narrow what the orchestrator can do.
+missing=""
+command -v herdr >/dev/null 2>&1 \
+    || missing="$missing
+  - herdr — nothing here works without it: https://herdr.dev"
+command -v glab >/dev/null 2>&1 \
+    || missing="$missing
+  - glab — only await-mr and the merge-request steps need it (brew install glab, then glab auth login)"
+command -v clickup >/dev/null 2>&1 \
+    || missing="$missing
+  - clickup — the developer set: https://github.com/TechTechWizard/claude-work-tools"
+
+report=""
+if [ -n "$removed" ]; then
+    report="orchestrator: removed what the old installation left behind:$removed"
+    for clone in $clones; do
+        report="$report
+The clone $clone is no longer used — delete it when it holds nothing of yours."
+    done
+fi
+if [ "$failed" = "1" ]; then
+    report="${report:+$report
+}orchestrator: could not remove part of the old installation; this check runs again next session."
+fi
+if [ -n "$missing" ]; then
+    report="${report:+$report
+}orchestrator: missing prerequisites:$missing"
+fi
+
+if [ "$failed" = "0" ]; then
+    mkdir -p "$DATA"
+    printf '%s\n' "$ROOT" > "$STATE"
+fi
+
+[ -n "$report" ] || exit 0
+# The report goes to the person as a systemMessage, not to the model as context.
+printf '%s' "$report" | awk '
+    BEGIN { ORS = ""; print "{\"systemMessage\": \"" }
+    {
+        gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); gsub(/\t/, "\\t")
+        if (NR > 1) print "\\n"
+        print
+    }
+    END { print "\"}\n" }
+'
