@@ -3,19 +3,29 @@
 Environment invariants. They bind every other protocol — read once per session, before the
 first hire. All of them were paid for in practice.
 
-## 0. The second half of the installation has to be there
+## 0. The plugin has to be there
 
-The skill arrives with `npx skills`; the wrappers and the roles arrive with `install.sh`
-from the same repository, and nothing makes a person run both. Before the first hire:
+The skill, the roles and the wrappers arrive together, as the `orchestrator` plugin: Claude
+Code loads the roles from its `agents/` and puts its `bin/` on the PATH of your `Bash`.
+Before the first hire:
 
 ```sh
 command -v recruit                      # the wrappers are on the PATH
-ls ~/.claude/agents/*.md                # the roles are where recruit and Claude Code read them
+recruit --roles                         # the five roles answer, as orchestrator:<role>
 ```
 
-Either one missing means the second step of the repository's README was skipped. Stop
-and say which step, with its two commands — do not hire by hand around it
+Either one missing means the plugin is not enabled in this session. Stop and say so, with
+the commands from the repository's README — do not hire by hand around it
 (`protocols/hire.md` says why), and do not write a role of your own to fill the gap.
+
+The shipped roles are files in the plugin's `agents/`, next to its `bin/`:
+
+```sh
+ls "$(dirname "$(command -v recruit)")"/../agents/*.md   # the shipped roles
+ls ~/.claude/agents/*.md                                  # roles of your own, if any
+```
+
+`recruit` reads both places; the protocols below say "the role file" for either.
 
 ## 1. The herdr server must start from a clean shell — so you can never start it
 
@@ -124,7 +134,7 @@ flag files with an allow-list, `--append-system-prompt-file`. All of it is gone,
 
 Two `recruit` runs in the same window both compute `tester-1`. `recruit` recomputes the
 number on every `agent start` attempt and renames the pane if someone took it — see
-`bin/recruit` in this repository. Any automation you write must do the same or it will collide.
+`recruit` itself (`command -v recruit`). Any automation you write must do the same or it will collide.
 
 ## 7. Every role pins its model, and a hire can be two sessions
 
@@ -135,7 +145,8 @@ tier: `recruit` does not print it, `roster` does not show it, and the only visib
 the footer inside the pane. The roles shipped in `agents/` pin their model for that reason.
 
 ```sh
-grep -L '^model:' ~/.claude/agents/*.md              # must return nothing before the first hire
+grep -L '^model:' "$(dirname "$(command -v recruit)")"/../agents/*.md ~/.claude/agents/*.md
+                                                     # must name no role you hire, before the first hire
 herdr agent read <name> --source recent --lines 5    # the pane footer names the live model
 ```
 

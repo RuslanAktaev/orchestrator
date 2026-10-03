@@ -3,11 +3,11 @@
 The teamlead set on top of the developer set: drive several Claude Code agents from
 [herdr](https://herdr.dev) panes, one role per pane, from one orchestrating session.
 Three things live here — the `orchestrator` skill, five roles, six wrappers over herdr —
-and they are installed in two steps, because `npx skills` installs skills and nothing else.
+and they ship together as one Claude Code plugin.
 
 ## What is here
 
-**The `orchestrator` skill** — the role that hands work out, watches it and accepts it. Its
+**The `orchestrator` skill** in `skills/` — the role that hands work out, watches it and accepts it. Its
 protocols cover hiring, chaining, status, unblocking, evidence and handoff. It carries no
 lead's standing rules of its own: it reads them from `~/.agents/standards/orchestrator.md`,
 or the project's `.agents/standards/orchestrator.md`, the same slot the development skills
@@ -16,10 +16,12 @@ read code standards from. Absent both, it works to the defaults written in the p
 **Five roles** in `agents/` — `back`, `front`, `reviewer`, `tester`, `researcher` — as
 native Claude Code agent definitions. Each names the skill that is its craft
 (`implement-task`, `review-mr`, `clickup`) and pins its model.
-`install.sh` links them into `~/.claude/agents/`, where both `recruit` and Claude Code
-read them.
+The plugin registers them as `orchestrator:back`, `orchestrator:front` and so on; `recruit`
+and `.roster` also accept the bare name.
 
-**Six wrappers** over herdr in `bin/`:
+**Six wrappers** over herdr in `bin/`. Claude Code puts a plugin's `bin/` on the PATH of
+its Bash tool, so they are there for the orchestrating session and everything it starts —
+not in a terminal of your own:
 
 | Tool | What it does | Needs |
 |---|---|---|
@@ -48,46 +50,50 @@ Three things a developer does not need and a teamlead does:
 
 ## Install
 
-Step one, the skill:
+In Claude Code:
 
-```sh
-npx skills add TechTechWizard/orchestrator -g -a claude-code -s orchestrator
+```
+/plugin marketplace add RuslanAktaev/orchestrator
+/plugin install orchestrator@orchestrator
 ```
 
-Step two, the roles and the wrappers:
+or from a shell: `claude plugin marketplace add RuslanAktaev/orchestrator`, then
+`claude plugin install orchestrator@orchestrator`. Start a new session afterwards.
 
-```sh
-git clone https://github.com/TechTechWizard/orchestrator.git ~/src/orchestrator
-cd ~/src/orchestrator && ./install.sh
-```
+Nothing is cloned and nothing is linked: the plugin system loads the skill and the roles and
+puts the wrappers on the PATH. The plugin's one hook, on session start, does its work once
+per plugin version and is silent the rest of the time:
 
-`install.sh` links `bin/*` into `~/.local/bin` and `agents/*.md` into `~/.claude/agents/`,
-then reports the prerequisites. A missing herdr makes it exit non-zero: the links are in
-place, but nothing here works yet. It refuses to run while `~/.claude/agents` is itself a
-symbolic link into some repository — make it a directory first. `BIN_DIR` and `AGENTS_DIR`
-move the targets; `./install.sh --check` reports without touching anything.
+- it removes what the old two-step installation left behind — the links `install.sh` made in
+  `~/.local/bin` and `~/.claude/agents`, and the copy of the skill `npx skills` made in
+  `~/.agents/skills` and `~/.claude/skills`, with its lock-file entry. Only links into a clone
+  of this repository and a skill whose `SKILL.md` names this repository are touched; the
+  clone itself stays, and the message says where it is;
+- it reports a missing herdr, glab or clickup.
 
 ## Check that it worked
 
-```sh
-recruit --roles          # five roles: back, front, researcher, reviewer, tester
-herdr status server      # running — start it with `herdr` in a real terminal if not
-clickup my-tasks         # the developer set answers
+In a new Claude Code session:
+
+```
+/skills                  # lists orchestrator:orchestrator
+! herdr status server    # running — start it with `herdr` in a real terminal if not
 ```
 
-And in a Claude Code session, `/skills` lists `orchestrator`. The skill checks the same
-things before its first hire and stops with the step to repeat if one is missing.
+and ask the session to run `recruit --roles` — five roles, `orchestrator:back` to
+`orchestrator:tester`. The skill checks the same things before its first hire and stops
+with the step to repeat if one is missing.
 
 ## Update
 
 ```sh
-npx skills update                          # the skill
-cd ~/src/orchestrator && git pull && ./install.sh --check   # the roles and the wrappers
+claude plugin marketplace update orchestrator
+claude plugin update orchestrator@orchestrator
 ```
 
-The links point into the checkout, so `git pull` alone updates the roles and the
-wrappers; `--check` catches a new file that needs a new link. A role that is already
-running keeps the definition it started with — re-hire to apply an update.
+then start a new session. An update arrives only when `version` in
+`.claude-plugin/plugin.json` changed — bump it with every change meant to reach people. A role that is already running keeps the definition it started
+with — re-hire to apply an update.
 
 ## Your standing rules go into the slot
 
@@ -100,9 +106,9 @@ the orchestrator every session, with the reasons. Nothing breaks without it.
 ## Roles: where `recruit` finds them
 
 A role is a native Claude Code agent definition, and `recruit` accepts it from either of
-two places: a file in `~/.claude/agents/<role>.md` — which is where `install.sh` links
-this repository's five — or an installed plugin that ships an `agents/` directory, listed
-as `<plugin>:<role>`. `recruit --roles` prints every role it can see and where each one
+two places: a file in `~/.claude/agents/<role>.md` — where roles of your own go — or an
+installed plugin that ships an `agents/` directory, listed as `<plugin>:<role>`, which is
+how this repository's five arrive. `recruit --roles` prints every role it can see and where each one
 comes from. A bare name works when exactly one definition answers to it; when two do,
 `recruit` refuses and prints both spellings.
 

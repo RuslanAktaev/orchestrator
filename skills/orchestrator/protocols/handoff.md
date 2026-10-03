@@ -4,7 +4,7 @@
 
 Nothing is accepted until it is proven. "PASS", "готово" and "работает" are claims, and a
 claim derived from reading code is a hypothesis — the rule and its reasoning live in
-`~/.claude/agents/tester.md`, which every role is held to here. Your job at handoff is to ask
+the `tester` role file (the plugin's `agents/tester.md`), which every role is held to here. Your job at handoff is to ask
 for the evidence, not to re-do the work.
 
 Evidence was named in the task text before the work started (`protocols/hire.md`). If it was
