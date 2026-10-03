@@ -40,7 +40,10 @@ task="$*"
 [ -d "$repo" ] || { echo "await-mr: no such directory: $repo" >&2; exit 1; }
 [ -n "$mr" ] || [ -n "$branch" ] || { echo "await-mr: need --mr or --branch" >&2; exit 1; }
 [ -n "$task" ] || { echo "await-mr: task text is required after --" >&2; exit 1; }
-[ -f "$HOME/.claude/agents/$role.md" ] || { echo "await-mr: no agent $role" >&2; exit 1; }
+# The role is looked up the way recruit resolves it — ~/.claude/agents/ or an enabled
+# plugin, bare or as <plugin>:<role> — so a role recruit accepts is never refused here.
+recruit --roles | awk -v r="$role" '{ n = $1; sub(/^[^:]*:/, "", n) } $1 == r || n == r { found = 1 } END { exit !found }' \
+    || { echo "await-mr: no agent $role (see: recruit --roles)" >&2; exit 1; }
 
 logdir="$HOME/.local/state/await-mr"
 mkdir -p "$logdir"

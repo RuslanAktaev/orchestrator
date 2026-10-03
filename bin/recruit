@@ -9,7 +9,7 @@
 #   recruit -h | --help                             this text
 #
 # Roles are native Claude Code agent definitions: either a file in ~/.claude/agents/
-# or an agent shipped by an installed plugin. Their frontmatter owns the tools, model
+# or an agent shipped by an installed plugin — the orchestrator plugin ships five. Their frontmatter owns the tools, model
 # and description; this script only places them in a herdr pane. A role from a plugin
 # is written <plugin>:<role>, and a bare name is accepted whenever it is unambiguous.
 #
