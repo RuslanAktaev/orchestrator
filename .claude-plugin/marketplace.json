@@ -1,0 +1,16 @@
+{
+  "name": "orchestrator",
+  "owner": {
+    "name": "TechTechWizard"
+  },
+  "metadata": {
+    "description": "The orchestrator plugin: run a team of Claude Code agents in herdr panes."
+  },
+  "plugins": [
+    {
+      "name": "orchestrator",
+      "source": "./",
+      "description": "Teamlead set: drive several Claude Code agents from herdr panes — the orchestrator skill, five roles and six wrappers over herdr."
+    }
+  ]
+}
